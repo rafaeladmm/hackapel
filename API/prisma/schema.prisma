@@ -1,18 +1,12 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
-generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
-}
-
 datasource db {
   provider = "postgresql"
-  url = env("DATABASES_URL")
+  url      = env("DATABASE_URL")
 }
+
+generator client {
+  provider = "prisma-client-js"
+}
+
 enum UserRole {
   PACIENTE
   PROFISSIONAL
@@ -33,117 +27,125 @@ enum Prioridade {
   P4
   P5
 }
+
 enum WhatsStatus {
   ATIVO
   INATIVO
   PENDENTE
 }
 
-
 model User {
-  id            String   @id @default(uuid())
+  id            Int         @id @default(autoincrement())
   nome          String
-  cpf           String   @unique
-  email         String?  @unique
+  cpf           String       @unique
+  email         String?      @unique
   senhaHash     String
   telefone      String?
-  role          UserRole @default(PACIENTE)
-  whatsStatus   WhatsStatus @default(PENDENTE)
+  role          UserRole     @default(PACIENTE)
+  whatsStatus   WhatsStatus  @default(PENDENTE)
+
   paciente      Paciente?
   profissional  Profissional?
 
-  criadoEm      DateTime @default(now())
-  atualizadoEm  DateTime @updatedAt
+  criadoEm      DateTime     @default(now())
+  atualizadoEm  DateTime     @updatedAt
 
-  logAdmins LogAdmin[]
+  logAdmins     LogAdmin[]
+
+  @@map("users")
 }
 
 model Organizacao {
-  id           String        @id @default(uuid())
-  nome         String
-  tipo         String        // UBS, Hospital, etc.
-  endereco     String?
+  id             Int              @id @default(autoincrement())
+  nome           String
+  tipo           String
+  endereco       String?
 
-  profissionais Profissional[]
-  consultas     Consulta[]
+  profissionais  Profissional[]
+  consultas      Consulta[]
+
+  @@map("organizacoes")
 }
-
 
 model Paciente {
-  id        String   @id @default(uuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id])
+  id             Int          @id @default(autoincrement())
+  userId         Int          @unique
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  consultas Consulta[]
-
+  consultas      Consulta[]
   attendanceStats AttendanceStats[]
+
+  @@map("pacientes")
 }
 
-
 model Profissional {
-  id             String       @id @default(uuid())
-  userId         String       @unique
-  organizacaoId  String
+  id             Int              @id @default(autoincrement())
+  userId         Int              @unique
+  organizacaoId  Int
 
-  user           User         @relation(fields: [userId], references: [id])
-  organizacao    Organizacao  @relation(fields: [organizacaoId], references: [id])
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizacao    Organizacao      @relation(fields: [organizacaoId], references: [id], onDelete: Cascade)
 
   especialidade  String
-  registro       String?      // CRM, COREN etc.
+  registro       String?
 
   consultas      Consulta[]
   agenda         AgendaProfissional[]
+
+  @@map("profissionais")
 }
 
-
 model Consulta {
-  id              String          @id @default(uuid())
-  pacienteId      String
-  profissionalId  String
-  organizacaoId   String
+  id              Int              @id @default(autoincrement())
+  pacienteId      Int
+  profissionalId  Int
+  organizacaoId   Int
 
   dataHora        DateTime
   prioridade      Prioridade
-  status          ConsultaStatus @default(AGENDADA)
-  compareceu      Boolean?       // usado para estatística
+  status          ConsultaStatus   @default(AGENDADA)
+  compareceu      Boolean?
 
-  paciente        Paciente       @relation(fields: [pacienteId], references: [id])
-  profissional    Profissional   @relation(fields: [profissionalId], references: [id])
-  organizacao     Organizacao    @relation(fields: [organizacaoId], references: [id])
+  paciente        Paciente         @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+  profissional    Profissional     @relation(fields: [profissionalId], references: [id], onDelete: Cascade)
+  organizacao     Organizacao      @relation(fields: [organizacaoId], references: [id], onDelete: Cascade)
 
-  criadoEm        DateTime       @default(now())
+  criadoEm        DateTime         @default(now())
+
+  @@map("consultas")
 }
-
-
 
 model AgendaProfissional {
-  id              String        @id @default(uuid())
-  profissionalId  String
+  id              Int          @id @default(autoincrement())
+  profissionalId  Int
   inicio          DateTime
   fim             DateTime
-  disponivel      Boolean       @default(true)
+  disponivel      Boolean      @default(true)
 
-  profissional    Profissional  @relation(fields: [profissionalId], references: [id])
+  profissional    Profissional @relation(fields: [profissionalId], references: [id], onDelete: Cascade)
+
+  @@map("agenda_profissional")
 }
-
 
 model AttendanceStats {
-  id            String   @id @default(uuid())
-  pacienteId    String   @unique
-  total         Int      @default(0)
-  presencas     Int      @default(0)
+  id            Int       @id @default(autoincrement())
+  pacienteId    Int       @unique
+  total         Int       @default(0)
+  presencas     Int       @default(0)
 
-  paciente      Paciente @relation(fields: [pacienteId], references: [id])
+  paciente      Paciente  @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+
+  @@map("attendance_stats")
 }
-
 
 model LogAdmin {
-  id          String    @id @default(uuid())
-  adminId     String
+  id          Int       @id @default(autoincrement())
+  adminId     Int
   acao        String
   detalhes    String?
-  criadoEm    DateTime  @default(now())
+  criadoEm    DateTime   @default(now())
 
-  admin       User      @relation(fields: [adminId], references: [id])
+  admin       User       @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@map("log_admins")
 }
-
