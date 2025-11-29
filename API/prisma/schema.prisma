@@ -1,0 +1,149 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASES_URL")
+}
+enum UserRole {
+  PACIENTE
+  PROFISSIONAL
+  ADMIN
+}
+
+enum ConsultaStatus {
+  AGENDADA
+  CONCLUIDA
+  CANCELADA
+  FALTA
+}
+
+enum Prioridade {
+  P1
+  P2
+  P3
+  P4
+  P5
+}
+enum WhatsStatus {
+  ATIVO
+  INATIVO
+  PENDENTE
+}
+
+
+model User {
+  id            String   @id @default(uuid())
+  nome          String
+  cpf           String   @unique
+  email         String?  @unique
+  senhaHash     String
+  telefone      String?
+  role          UserRole @default(PACIENTE)
+  whatsStatus   WhatsStatus @default(PENDENTE)
+  paciente      Paciente?
+  profissional  Profissional?
+
+  criadoEm      DateTime @default(now())
+  atualizadoEm  DateTime @updatedAt
+
+  logAdmins LogAdmin[]
+}
+
+model Organizacao {
+  id           String        @id @default(uuid())
+  nome         String
+  tipo         String        // UBS, Hospital, etc.
+  endereco     String?
+
+  profissionais Profissional[]
+  consultas     Consulta[]
+}
+
+
+model Paciente {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+
+  consultas Consulta[]
+
+  attendanceStats AttendanceStats[]
+}
+
+
+model Profissional {
+  id             String       @id @default(uuid())
+  userId         String       @unique
+  organizacaoId  String
+
+  user           User         @relation(fields: [userId], references: [id])
+  organizacao    Organizacao  @relation(fields: [organizacaoId], references: [id])
+
+  especialidade  String
+  registro       String?      // CRM, COREN etc.
+
+  consultas      Consulta[]
+  agenda         AgendaProfissional[]
+}
+
+
+model Consulta {
+  id              String          @id @default(uuid())
+  pacienteId      String
+  profissionalId  String
+  organizacaoId   String
+
+  dataHora        DateTime
+  prioridade      Prioridade
+  status          ConsultaStatus @default(AGENDADA)
+  compareceu      Boolean?       // usado para estatística
+
+  paciente        Paciente       @relation(fields: [pacienteId], references: [id])
+  profissional    Profissional   @relation(fields: [profissionalId], references: [id])
+  organizacao     Organizacao    @relation(fields: [organizacaoId], references: [id])
+
+  criadoEm        DateTime       @default(now())
+}
+
+
+
+model AgendaProfissional {
+  id              String        @id @default(uuid())
+  profissionalId  String
+  inicio          DateTime
+  fim             DateTime
+  disponivel      Boolean       @default(true)
+
+  profissional    Profissional  @relation(fields: [profissionalId], references: [id])
+}
+
+
+model AttendanceStats {
+  id            String   @id @default(uuid())
+  pacienteId    String   @unique
+  total         Int      @default(0)
+  presencas     Int      @default(0)
+
+  paciente      Paciente @relation(fields: [pacienteId], references: [id])
+}
+
+
+model LogAdmin {
+  id          String    @id @default(uuid())
+  adminId     String
+  acao        String
+  detalhes    String?
+  criadoEm    DateTime  @default(now())
+
+  admin       User      @relation(fields: [adminId], references: [id])
+}
+
